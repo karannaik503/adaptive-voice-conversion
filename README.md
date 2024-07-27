@@ -1,2 +1,2 @@
 # One-shot Voice Conversion by Separating Speaker and Content Representations with Instance Normalization
-This implementation of adaptive voice conversion is taken from the paper [One-shot Voice Conversion by Separating Speaker and Content Representations with Instance Normalization](https://arxiv.org/abs/1904.05742) which is the official adaptation of One-Shot Voice Conversion system based on https://github.com/jjery2243542/adaptive_voice_conversion.
+This voice conversion system is an unofficial implementation of adaptive voice conversion taken from the paper [One-shot Voice Conversion by Separating Speaker and Content Representations with Instance Normalization](https://arxiv.org/abs/1904.05742) based on https://github.com/jjery2243542/adaptive_voice_conversion.
