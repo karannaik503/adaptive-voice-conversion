@@ -1,0 +1,1 @@
+python inference.py -a attr.pkl -c config.yaml -m vctk_model.ckpt -s source.wav -t target.wav -o output.wav -sr 24000

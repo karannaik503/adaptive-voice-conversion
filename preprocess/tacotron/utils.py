@@ -18,7 +18,7 @@ from scipy import signal
 import os
 
 def _mel_to_linear_matrix(sr, n_fft, n_mels):
-    m = librosa.filters.mel(sr, n_fft, n_mels)
+    m = librosa.filters.mel(sr=sr, n_fft=n_fft, n_mels=n_mels)
     m_t = np.transpose(m)
     p = np.matmul(m, m_t)
     d = [1.0 / x if np.abs(x) > 1.0e-8 else x for x in np.sum(p, axis=0)]
@@ -33,25 +33,8 @@ def get_spectrograms(fpath):
       mel: A 2d array of shape (T, n_mels) <- Transposed
       mag: A 2d array of shape (T, 1+n_fft/2) <- Transposed
     '''
-    # num = np.random.randn()
-    # if num < .2:
-    #     y, sr = librosa.load(fpath, sr=hp.sr)
-    # else:
-    #     if num < .4:
-    #         tempo = 1.1
-    #     elif num < .6:
-    #         tempo = 1.2
-    #     elif num < .8:
-    #         tempo = 0.9
-    #     else:
-    #         tempo = 0.8
-    #     cmd = "ffmpeg -i {} -y ar {} -hide_banner -loglevel panic -ac 1 -filter:a atempo={} -vn temp.wav".format(fpath, hp.sr, tempo)
-    #     os.system(cmd)
-    #     y, sr = librosa.load('temp.wav', sr=hp.sr)
-
     # Loading sound file
     y, sr = librosa.load(fpath, sr=hp.sr)
-
 
     # Trimming
     y, _ = librosa.effects.trim(y, top_db=hp.top_db)
@@ -69,7 +52,7 @@ def get_spectrograms(fpath):
     mag = np.abs(linear)  # (1+n_fft//2, T)
 
     # mel spectrogram
-    mel_basis = librosa.filters.mel(hp.sr, hp.n_fft, hp.n_mels)  # (n_mels, 1+n_fft//2)
+    mel_basis = librosa.filters.mel(sr=hp.sr, n_fft=hp.n_fft, n_mels=hp.n_mels)  # Updated line
     mel = np.dot(mel_basis, mag)  # (n_mels, t)
 
     # to decibel
@@ -85,6 +68,7 @@ def get_spectrograms(fpath):
     mag = mag.T.astype(np.float32)  # (T, 1+n_fft//2)
 
     return mel, mag
+
 
 def melspectrogram2wav(mel):
     '''# Generate wave file from spectrogram'''
@@ -134,26 +118,28 @@ def spectrogram2wav(mag):
 
 
 def griffin_lim(spectrogram):
-    '''Applies Griffin-Lim's raw.
-    '''
+    '''Applies Griffin-Lim's algorithm.'''
     X_best = copy.deepcopy(spectrogram)
-    for i in range(hp.n_iter):
+    for _ in range(hp.n_iter):
         X_t = invert_spectrogram(X_best)
-        est = librosa.stft(X_t, hp.n_fft, hp.hop_length, win_length=hp.win_length)
+        est = librosa.stft(
+            X_t,
+            n_fft=hp.n_fft,
+            hop_length=hp.hop_length,
+            win_length=hp.win_length,
+            window="hann"
+        )
         phase = est / np.maximum(1e-8, np.abs(est))
         X_best = spectrogram * phase
     X_t = invert_spectrogram(X_best)
     y = np.real(X_t)
-
     return y
-
 
 def invert_spectrogram(spectrogram):
     '''
     spectrogram: [f, t]
     '''
-    return librosa.istft(spectrogram, hp.hop_length, win_length=hp.win_length, window="hann")
-
+    return librosa.istft(spectrogram, hop_length=hp.hop_length, win_length=hp.win_length, window="hann")
 
 def plot_alignment(alignment, gs):
     """Plots the alignment

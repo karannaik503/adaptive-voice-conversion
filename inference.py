@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import sys
-import os 
+import os
 import torch.nn as nn
 import torch.nn.functional as F
 import yaml
@@ -19,7 +19,8 @@ from scipy.io.wavfile import write
 import random
 from preprocess.tacotron.utils import melspectrogram2wav
 from preprocess.tacotron.utils import get_spectrograms
-import librosa 
+import librosa
+import shutil
 
 class Inferencer(object):
     def __init__(self, config, args):
@@ -41,12 +42,13 @@ class Inferencer(object):
 
     def load_model(self):
         print(f'Load model from {self.args.model}')
-        self.model.load_state_dict(torch.load(f'{self.args.model}'))
+        self.model.load_state_dict(torch.load(self.args.model, map_location=torch.device('cpu'), weights_only=True))
         return
 
     def build_model(self): 
         # create model, discriminator, optimizers
         self.model = cc(AE(self.config))
+        self.model.to(torch.device('cpu'))  # Ensure model is on CPU
         print(self.model)
         self.model.eval()
         return
@@ -83,14 +85,38 @@ class Inferencer(object):
         write(output_path, rate=self.args.sample_rate, data=wav_data)
         return
 
+    def create_test_folder(self):
+        base_dir = "test_files"
+        if not os.path.exists(base_dir):
+            os.makedirs(base_dir)
+        
+        test_folder_num = 1
+        while os.path.exists(os.path.join(base_dir, f"test{test_folder_num}")):
+            test_folder_num += 1
+        
+        test_folder_path = os.path.join(base_dir, f"test{test_folder_num}")
+        os.makedirs(test_folder_path)
+        return test_folder_path
+
+    def save_files(self, test_folder, src_path, target_path, output_path):
+        shutil.copy2(src_path, os.path.join(test_folder, "source.wav"))
+        shutil.copy2(target_path, os.path.join(test_folder, "target.wav"))
+        shutil.copy2(output_path, os.path.join(test_folder, "output.wav"))
+
     def inference_from_path(self):
         src_mel, _ = get_spectrograms(self.args.source)
         tar_mel, _ = get_spectrograms(self.args.target)
-        src_mel = torch.from_numpy(self.normalize(src_mel)).cuda()
-        tar_mel = torch.from_numpy(self.normalize(tar_mel)).cuda()
+        device = torch.device('cpu')  # Ensure device is set to CPU
+        src_mel = torch.from_numpy(self.normalize(src_mel)).to(device)
+        tar_mel = torch.from_numpy(self.normalize(tar_mel)).to(device)
         conv_wav, conv_mel = self.inference_one_utterance(src_mel, tar_mel)
         self.write_wav_to_file(conv_wav, self.args.output)
+        
+        # Create the test folder and save the files
+        test_folder = self.create_test_folder()
+        self.save_files(test_folder, self.args.source, self.args.target, self.args.output)
         return
+
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -104,6 +130,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # load config file 
     with open(args.config) as f:
-        config = yaml.load(f)
+        config = yaml.load(f, Loader=yaml.SafeLoader)
     inferencer = Inferencer(config=config, args=args)
     inferencer.inference_from_path()
